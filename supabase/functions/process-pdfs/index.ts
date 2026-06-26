@@ -73,7 +73,7 @@ function separaCategoria(c3: string, c4: string): [string | null, number | null,
       if (letras.startsWith(k)) { categoria = cat; break }
     }
   }
-  return [categoria ?? c3 || null, ano_fab, ano_mod]
+  return [(categoria ?? c3) || null, ano_fab, ano_mod]
 }
 
 // ── Extração de tabela do PDF ──────────────────────────────────────────────
