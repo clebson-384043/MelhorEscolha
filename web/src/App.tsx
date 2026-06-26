@@ -155,12 +155,13 @@ function Dashboard({ session }: { session: Session }) {
     if (filters.somenteNovos) v = v.filter(r => newPlacas.has(r.placa))
 
     return [...v].sort((a, b) => {
-      const av = a[sortKey]
-      const bv = b[sortKey]
+      // score é calculado, não é propriedade de Vehicle
       if (sortKey === 'score') {
         const sa = calcScore(a), sb = calcScore(b)
         return sortDir === 'asc' ? sa - sb : sb - sa
       }
+      const av = a[sortKey as keyof Vehicle]
+      const bv = b[sortKey as keyof Vehicle]
       if (av == null && bv == null) return 0
       if (av == null) return 1
       if (bv == null) return -1
