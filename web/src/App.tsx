@@ -18,6 +18,7 @@ import VehicleCard from './components/VehicleCard'
 import PriceHistory from './components/PriceHistory'
 import Login from './pages/Login'
 import Admin from './pages/Admin'
+import Upload from './pages/Upload'
 import { calcScore } from './lib/score'
 import './App.css'
 
@@ -69,7 +70,7 @@ export default function App() {
 // ─── Dashboard (só renderiza quando autenticado) ───────────────────────────
 
 function Dashboard({ session }: { session: Session }) {
-  const [view, setView]             = useState<'dashboard' | 'admin'>('dashboard')
+  const [view, setView]             = useState<'dashboard' | 'admin' | 'upload'>('dashboard')
   const [isAdmin, setIsAdmin]       = useState(false)
   const [tenantId, setTenantId]     = useState<string>(DEFAULT_TENANT)
   const [selVehicle, setSelVehicle] = useState<Vehicle | null>(null)
@@ -214,6 +215,10 @@ function Dashboard({ session }: { session: Session }) {
     return <Admin session={session} onBack={() => setView('dashboard')} />
   }
 
+  if (view === 'upload') {
+    return <Upload session={session} onBack={() => setView('dashboard')} />
+  }
+
   return (
     <div className="app">
       <header className="app-header">
@@ -246,6 +251,18 @@ function Dashboard({ session }: { session: Session }) {
 
         {/* Espaçador */}
         <div style={{ flex: 1 }} />
+
+        {/* Botão upload (só para admins) */}
+        {isAdmin && (
+          <button className="header-admin-btn" onClick={() => setView('upload')}
+            style={{ background: 'rgba(34,197,94,.15)', borderColor: 'rgba(34,197,94,.25)', color: '#4ADE80' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                 strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+            </svg>
+            <span className="btn-label">Upload</span>
+          </button>
+        )}
 
         {/* Botão admin (só visível para super admins) */}
         {isAdmin && (
