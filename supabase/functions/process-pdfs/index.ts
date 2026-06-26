@@ -6,8 +6,8 @@
  * Deploy: supabase functions deploy process-pdfs
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-// @ts-ignore
-import * as pdfjs from 'https://esm.sh/pdfjs-dist@3.11.174/build/pdf.mjs'
+// unpdf = wrapper de pdfjs-dist sem dependências nativas (funciona em Deno/Edge)
+import { getDocumentProxy } from 'https://esm.sh/unpdf@0.10.1'
 
 // ── Tipagem ────────────────────────────────────────────────────────────────
 
@@ -79,7 +79,7 @@ function separaCategoria(c3: string, c4: string): [string | null, number | null,
 // ── Extração de tabela do PDF ──────────────────────────────────────────────
 
 async function extraiTabela(buffer: ArrayBuffer): Promise<string[][]> {
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise
+  const doc = await getDocumentProxy(new Uint8Array(buffer))
   const linhas: string[][] = []
   const Y_TOL = 3
 
