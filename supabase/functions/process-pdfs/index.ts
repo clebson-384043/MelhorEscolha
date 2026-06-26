@@ -257,8 +257,8 @@ Deno.serve(async (req) => {
   if (!user) return json({ error: 'Token inválido' }, 401)
 
   try {
-    const { storage_paths, tenant_id = 'piloto', data_ref } = await req.json() as {
-      storage_paths: string[]; tenant_id?: string; data_ref: string
+    const { storage_paths, tenant_id = 'piloto', data_ref, run_diff = true } = await req.json() as {
+      storage_paths: string[]; tenant_id?: string; data_ref: string; run_diff?: boolean
     }
 
     if (!storage_paths?.length || !data_ref) return json({ error: 'storage_paths e data_ref obrigatórios' }, 400)
@@ -322,8 +322,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Roda diff ao final
-    try { await rodaDiff(admin, tenant_id, data_ref) } catch (_) { /* diff não crítico */ }
+    // Roda diff ao final (só quando solicitado — evita rodar N vezes para N arquivos)
+    if (run_diff) {
+      try { await rodaDiff(admin, tenant_id, data_ref) } catch (_) { /* diff não crítico */ }
+    }
 
     return json({ ok: true, resultados })
 

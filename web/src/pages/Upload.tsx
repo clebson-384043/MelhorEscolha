@@ -49,40 +49,47 @@ export default function Upload({ onBack }: Props) {
     setErro(null)
     setResultados(arquivos.map(f => ({ arquivo: f.name, status: 'enviando' })))
 
-    try {
-      // 1. Upload para Supabase Storage
-      const storagePaths: string[] = []
-      for (const file of arquivos) {
+    // Processa um arquivo por vez para não estourar o limite de CPU da Edge Function
+    let difRodado = false
+    for (const file of arquivos) {
+      try {
+        // 1. Upload para Supabase Storage
         const path = `${tenantId}/${dataRef}/${file.name}`
         const { error: upErr } = await supabase.storage.from('pdfs').upload(path, file, { upsert: true })
-        if (upErr) throw new Error(`Falha no upload de ${file.name}: ${upErr.message}`)
-        storagePaths.push(path)
+        if (upErr) throw new Error(`Falha no upload: ${upErr.message}`)
+
         setResultados(prev => prev.map(r => r.arquivo === file.name ? { ...r, status: 'aguardando' } : r))
+
+        // 2. Chama Edge Function para este arquivo individualmente
+        const { data, error: fnErr } = await supabase.functions.invoke('process-pdfs', {
+          body: {
+            storage_paths: [path],
+            tenant_id: tenantId,
+            data_ref: dataRef,
+            run_diff: !difRodado,  // diff só no primeiro arquivo bem-sucedido
+          },
+        })
+
+        if (fnErr) throw new Error(fnErr.message)
+
+        const r = data?.resultados?.[0] as Resultado | undefined
+        if (r) {
+          if (r.status === 'ok' || r.status === 'aviso') difRodado = true
+          setResultados(prev => prev.map(p => p.arquivo === file.name
+            ? { ...p, status: r.status, veiculos: r.veiculos, alertas: r.alertas, motivo: r.motivo }
+            : p
+          ))
+        }
+
+      } catch (e) {
+        setResultados(prev => prev.map(r => r.arquivo === file.name
+          ? { ...r, status: 'erro', motivo: String(e) }
+          : r
+        ))
       }
-
-      // 2. Chama Edge Function para processar
-      const { data, error: fnErr } = await supabase.functions.invoke('process-pdfs', {
-        body: { storage_paths: storagePaths, tenant_id: tenantId, data_ref: dataRef },
-      })
-
-      if (fnErr) throw new Error(fnErr.message)
-
-      // 3. Atualiza resultados
-      const res: Resultado[] = (data?.resultados ?? []).map((r: Resultado) => ({
-        arquivo: r.arquivo,
-        status: r.status,
-        veiculos: r.veiculos,
-        alertas: r.alertas,
-        motivo: r.motivo,
-      }))
-      setResultados(res)
-
-    } catch (e) {
-      setErro(String(e))
-      setResultados(prev => prev.map(r => ({ ...r, status: 'erro', motivo: String(e) })))
-    } finally {
-      setProcessando(false)
     }
+
+    setProcessando(false)
   }
 
   const totalOk  = resultados.filter(r => r.status === 'ok' || r.status === 'aviso').length
