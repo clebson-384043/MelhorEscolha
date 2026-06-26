@@ -19,6 +19,7 @@ build/
 
 # === Dados gerados pelo pipeline (não versionar) ===
 pipeline/input/
+pipeline/input_lista_morte/
 pipeline/output/*.json
 data/pdfs/
 

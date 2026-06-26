@@ -1,6 +1,13 @@
 import { useEffect, useState, useMemo } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase, TENANT } from './lib/supabase'
+import { supabase } from './lib/supabase'
+
+// Tenants disponíveis e seus rótulos de exibição
+const TENANTS: { id: string; label: string; cor: string }[] = [
+  { id: 'piloto',      label: 'Estoque Regular', cor: '#22C55E' },
+  { id: 'lista_morte', label: 'Lista da Morte',  cor: '#F97316' },
+]
+const DEFAULT_TENANT = (import.meta.env.VITE_TENANT as string | undefined) ?? 'piloto'
 import { getSession, onAuthChange, signOut } from './lib/auth'
 import { fmtData } from './lib/format'
 import { Vehicle, Filters, SortKey, SortDir } from './types'
@@ -64,6 +71,7 @@ export default function App() {
 function Dashboard({ session }: { session: Session }) {
   const [view, setView]             = useState<'dashboard' | 'admin'>('dashboard')
   const [isAdmin, setIsAdmin]       = useState(false)
+  const [tenantId, setTenantId]     = useState<string>(DEFAULT_TENANT)
   const [selVehicle, setSelVehicle] = useState<Vehicle | null>(null)
   const [vehicles, setVehicles]     = useState<Vehicle[]>([])
   const [newPlacas, setNewPlacas]   = useState<Set<string>>(new Set())
@@ -85,12 +93,24 @@ function Dashboard({ session }: { session: Session }) {
       .then(({ data }) => setIsAdmin(!!data))
   }, [session.user.email])
 
-  // 1. Busca datas disponíveis
+  // Ao trocar de tenant: limpa dados e recarrega datas
+  function handleTenantChange(id: string) {
+    setTenantId(id)
+    setVehicles([])
+    setNewPlacas(new Set())
+    setAvailDates([])
+    setSelDate('')
+    setFilters(EMPTY_FILTERS)
+    setSelVehicle(null)
+  }
+
+  // 1. Busca datas disponíveis (re-executa ao trocar tenant)
   useEffect(() => {
+    setLoading(true)
     supabase
       .from('datas_disponiveis')
       .select('data_ref')
-      .eq('tenant_id', TENANT)
+      .eq('tenant_id', tenantId)
       .order('data_ref', { ascending: false })
       .limit(60)
       .then(({ data, error: err }) => {
@@ -104,7 +124,7 @@ function Dashboard({ session }: { session: Session }) {
           setSelDate(datas[0])
         }
       })
-  }, [])
+  }, [tenantId])
 
   // 2. Busca veículos quando a data muda
   useEffect(() => {
@@ -117,14 +137,14 @@ function Dashboard({ session }: { session: Session }) {
         supabase
           .from('veiculos_snapshot')
           .select('*')
-          .eq('tenant_id', TENANT)
+          .eq('tenant_id', tenantId)
           .eq('data_ref', selDate)
           .order('margem_liq_pct', { ascending: false })
       ),
       supabase
         .from('eventos_diarios')
         .select('placa')
-        .eq('tenant_id', TENANT)
+        .eq('tenant_id', tenantId)
         .eq('data_ref', selDate)
         .eq('tipo', 'novo'),
     ])
@@ -198,6 +218,21 @@ function Dashboard({ session }: { session: Session }) {
     <div className="app">
       <header className="app-header">
         <h1>Escolha Certa</h1>
+
+        {/* Seletor de tenant */}
+        <div className="tenant-switcher">
+          {TENANTS.map(t => (
+            <button
+              key={t.id}
+              className={`tenant-btn ${tenantId === t.id ? 'active' : ''}`}
+              style={{ '--tenant-cor': t.cor } as React.CSSProperties}
+              onClick={() => handleTenantChange(t.id)}
+              title={t.label}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
         <select
           value={selDate}

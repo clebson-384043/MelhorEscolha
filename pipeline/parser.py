@@ -63,9 +63,10 @@ def separa_categoria_anos(c3, c4):
     return categoria, ano_fab, ano_mod
 
 PATIO_NOME = {
-    'VCEBH': 'Pátio Contagem',    # corrigido (era 'Via Shopping')
-    'VCPSB': 'Via Shopping',       # corrigido (era 'Shopping Contagem')
-    'VCPGM': 'Shopping Contagem',  # corrigido (era 'Pátio Contagem')
+    'VCANT': 'Antonio Carlos',     # adicionado
+    'VCEBH': 'Pátio Contagem',     # corrigido (era 'Via Shopping')
+    'VCPSB': 'Via Shopping',        # corrigido (era 'Shopping Contagem')
+    'VCPGM': 'Shopping Contagem',   # corrigido (era 'Pátio Contagem')
     'VCPSI': 'Shopping Cidade',
     'VCBET': 'Betim',
     'VCBHZ': 'BH',
@@ -104,14 +105,23 @@ def parse_pdf(path):
                         ano5 = limpa_int((row[5] or '').strip())
                         if ano5 and 2000 <= ano5 <= 2035:
                             ano_mod = ano5
-                    km   = limpa_int(row[6])
-                    cor  = (row[7] or '').strip()
-                    uf   = (row[8] or '').strip()
-                    orcamento = limpa_dinheiro(row[9])   # CUSTO DE REPARO (opcional)
-                    fpe       = limpa_dinheiro(row[10])  # preço tabela
-                    margem    = limpa_dinheiro(row[11])  # desconto bruto R$
-                    portal    = limpa_dinheiro(row[12])  # preço de venda
-                    pct       = (row[13] or '').strip()
+                    # Detecta layout estendido com endereço/bairro/loja/cidade
+                    # entre COR e UF (ex: LISTA DA MORTE 2606.pdf — 18 colunas)
+                    if len(row) >= 18:
+                        km_i, cor_i, uf_i = 6, 7, 12
+                        orc_i, fpe_i, mg_i, portal_i, pct_i = 13, 14, 15, 16, 17
+                    else:
+                        km_i, cor_i, uf_i = 6, 7, 8
+                        orc_i, fpe_i, mg_i, portal_i, pct_i = 9, 10, 11, 12, 13
+
+                    km        = limpa_int(row[km_i])
+                    cor       = (row[cor_i] or '').strip()
+                    uf        = (row[uf_i] or '').strip()
+                    orcamento = limpa_dinheiro(row[orc_i])
+                    fpe       = limpa_dinheiro(row[fpe_i])
+                    margem    = limpa_dinheiro(row[mg_i])
+                    portal    = limpa_dinheiro(row[portal_i])
+                    pct       = (row[pct_i] or '').strip()
                     pct_num   = limpa_int(pct.replace('%','')) if '%' in pct else None
 
                     # MARGEM LÍQUIDA = desconto bruto - custo de reparo
