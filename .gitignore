@@ -1,0 +1,38 @@
+# === Segredos ===
+.env
+.env.local
+.env.*.local
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# === Dados gerados pelo pipeline (não versionar) ===
+pipeline/input/
+pipeline/output/*.json
+data/pdfs/
+
+# === Node / Vite ===
+node_modules/
+web/dist/
+web/.vite/
+*.local
+
+# === Supabase CLI temp ===
+supabase/.temp/
+
+# === Editores e OS ===
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+*.swp

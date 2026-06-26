@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* ── Superfícies dark ── */
+  --c-bg:         #020617;
+  --c-surface:    #0B1220;
+  --c-surface-2:  #0F172A;
+  --c-surface-3:  #1E293B;
+  --c-border:     rgba(255,255,255,.07);
+  --c-border-l:   rgba(255,255,255,.03);
+
+  /* ── Texto ── */
+  --c-text:       #F1F5F9;
+  --c-text-2:     #CBD5E1;
+  --c-text-3:     #64748B;
+  --c-text-4:     #334155;
+
+  /* ── Primária ── */
+  --c-primary:    #2563EB;
+  --c-primary-l:  #3B82F6;
+  --c-primary-xl: rgba(59,130,246,.12);
+
+  /* ── Status ── */
+  --c-green:      #22C55E;
+  --c-green-bg:   rgba(34,197,94,.12);
+  --c-green-text: #4ADE80;
+  --c-amber:      #F59E0B;
+  --c-amber-bg:   rgba(245,158,11,.12);
+  --c-amber-text: #FCD34D;
+  --c-orange:     #F97316;
+  --c-orange-bg:  rgba(249,115,22,.15);
+  --c-indigo:     #6366F1;
+  --c-red:        #EF4444;
+
+  /* ── Header ── */
+  --c-header:     #000000;
+  --c-header-2:   #0B1220;
+
+  /* ── Tipografia ── */
+  --font-ui:   'Fira Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Fira Code', 'Cascadia Code', monospace;
+
+  /* ── Geometria ── */
+  --r:        5px;
+  --r-lg:     8px;
+  --header-h: 52px;
+
+  /* ── Sombras ── */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.4);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.5);
+  --glow-green: 0 0 12px rgba(34,197,94,.3);
+  --glow-blue:  0 0 12px rgba(59,130,246,.3);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; color-scheme: dark; }
+
+body {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--c-text);
+  background: var(--c-bg);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.desktop-only { display: none; }
+.mobile-only  { display: block; }
+
+@media (min-width: 768px) {
+  .desktop-only { display: block; }
+  .mobile-only  { display: none; }
+  body { font-size: 13px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+  }
+}

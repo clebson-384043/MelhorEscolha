@@ -1,0 +1,433 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+/* ============================================================
+   Admin Page Shell
+   ============================================================ */
+.admin-page {
+  min-height: 100vh;
+  background: #F8FAFC;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+/* Back button */
+.admin-back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 5px;
+  color: #94A3B8;
+  font-size: 13px;
+  font-family: inherit;
+  padding: 0 12px;
+  height: 30px;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
+}
+.admin-back svg { width: 15px; height: 15px; }
+.admin-back:hover { color: #CBD5E1; border-color: rgba(255,255,255,.28); }
+
+.admin-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-badge {
+  background: #1D4ED8;
+  color: #BFDBFE;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+/* ============================================================
+   Layout
+   ============================================================ */
+.admin-content {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 20px;
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+@media (max-width: 900px) {
+  .admin-content { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   Sections / Cards
+   ============================================================ */
+.admin-section {
+  background: #fff;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 20px 24px;
+}
+
+.admin-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.admin-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 12px;
+}
+
+.admin-section-header h2 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0F172A;
+  margin: 0;
+}
+
+.admin-subtitle {
+  font-size: 12px;
+  color: #64748B;
+  margin-top: 2px;
+}
+
+.admin-btn-refresh {
+  background: none;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  transition: background .15s, color .15s;
+  flex-shrink: 0;
+}
+.admin-btn-refresh svg { width: 14px; height: 14px; }
+.admin-btn-refresh:hover { background: #F1F5F9; color: #334155; }
+.admin-btn-refresh:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ============================================================
+   Users Table
+   ============================================================ */
+.admin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.admin-table thead th {
+  background: #F8FAFC;
+  color: #64748B;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid #E2E8F0;
+  white-space: nowrap;
+}
+
+.admin-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #F1F5F9;
+  vertical-align: middle;
+  color: #334155;
+}
+
+.admin-table tbody tr:last-child td { border-bottom: none; }
+.admin-table tbody tr:hover td { background: #F8FAFC; }
+.admin-table tbody tr.admin-row-me td { background: #F0F9FF; }
+
+/* User cell */
+.admin-user-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #1D4ED8;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.admin-user-email {
+  font-size: 13px;
+  font-weight: 500;
+  color: #0F172A;
+}
+
+.admin-you-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  color: #1D4ED8;
+  background: #DBEAFE;
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-top: 2px;
+}
+
+.admin-ts { font-size: 12px; color: #64748B; white-space: nowrap; }
+
+/* Status badge */
+.admin-status {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+.admin-status.active  { background: #DCFCE7; color: #14532D; }
+.admin-status.pending { background: #FEF9C3; color: #713F12; }
+
+/* Delete button */
+.admin-btn-delete {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 5px;
+  cursor: pointer;
+  color: #CBD5E1;
+  display: flex;
+  align-items: center;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.admin-btn-delete svg { width: 15px; height: 15px; }
+.admin-btn-delete:hover {
+  color: #DC2626;
+  border-color: #FECACA;
+  background: #FEF2F2;
+}
+
+.admin-empty {
+  padding: 40px;
+  text-align: center;
+  color: #94A3B8;
+  font-style: italic;
+}
+
+/* ============================================================
+   Create Form
+   ============================================================ */
+.admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.admin-field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-field-hint {
+  font-size: 11px;
+  font-weight: 400;
+  color: #94A3B8;
+}
+
+.admin-field input {
+  height: 38px;
+  padding: 0 12px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 7px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #0F172A;
+  background: #F8FAFC;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.admin-field input:focus {
+  border-color: #1D4ED8;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(29,78,216,.1);
+}
+.admin-field input:disabled { opacity: .6; }
+
+.admin-check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #334155;
+  cursor: pointer;
+}
+.admin-check-label input { accent-color: #1D4ED8; width: 15px; height: 15px; }
+
+.admin-form-msg {
+  font-size: 12.5px;
+  padding: 10px 12px;
+  border-radius: 7px;
+}
+.admin-form-msg.ok  { background: #DCFCE7; color: #14532D; border: 1px solid #BBF7D0; }
+.admin-form-msg.err { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+
+.admin-btn-create {
+  height: 40px;
+  background: #1D4ED8;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background .15s, box-shadow .15s;
+}
+.admin-btn-create:hover:not(:disabled) {
+  background: #1E40AF;
+  box-shadow: 0 3px 10px rgba(29,78,216,.3);
+}
+.admin-btn-create:disabled { opacity: .6; cursor: not-allowed; }
+
+/* Deploy box */
+.admin-deploy-box {
+  background: #0F172A;
+  border-radius: 10px;
+  padding: 18px 20px;
+  color: #94A3B8;
+}
+.admin-deploy-box h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #F8FAFC;
+  margin-bottom: 4px;
+}
+.admin-deploy-box p { font-size: 12px; margin-bottom: 12px; }
+.admin-deploy-box pre {
+  background: #1E293B;
+  border-radius: 6px;
+  padding: 12px;
+  overflow-x: auto;
+}
+.admin-deploy-box code {
+  font-family: 'Fira Code', monospace;
+  font-size: 11.5px;
+  color: #7DD3FC;
+  white-space: pre;
+}
+
+/* ============================================================
+   Mensagens de estado
+   ============================================================ */
+.admin-error {
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: 7px;
+  color: #DC2626;
+  font-size: 13px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+.admin-loading {
+  padding: 40px;
+  text-align: center;
+  color: #94A3B8;
+  font-size: 13px;
+}
+
+/* ============================================================
+   Modal de confirmação
+   ============================================================ */
+.admin-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15,23,42,.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(2px);
+}
+
+.admin-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 28px 32px;
+  max-width: 380px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+}
+.admin-modal h3 {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0F172A;
+  margin-bottom: 8px;
+}
+.admin-modal p {
+  font-size: 14px;
+  color: #64748B;
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+.admin-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.admin-btn-cancel {
+  height: 36px;
+  padding: 0 16px;
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  border-radius: 7px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #475569;
+  cursor: pointer;
+  transition: background .15s;
+}
+.admin-btn-cancel:hover { background: #E2E8F0; }
+
+.admin-btn-confirm-delete {
+  height: 36px;
+  padding: 0 16px;
+  background: #DC2626;
+  border: none;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  color: #fff;
+  cursor: pointer;
+  transition: background .15s;
+}
+.admin-btn-confirm-delete:hover:not(:disabled) { background: #B91C1C; }
+.admin-btn-confirm-delete:disabled { opacity: .6; }
