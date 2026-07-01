@@ -41,8 +41,23 @@ function limpaDinheiro(s: string | null | undefined): number | null {
   const t = s.replace(/R\$/g,'').replace(/\s+/g,'').trim()
   if (!t || t === '-' || t === '#DIV/0!') return null
   const neg = t.startsWith('-'); const v = t.replace('-','')
-  const n = parseFloat(v.replace('.','').replace(',','.'))
+  // /\./g remove TODOS os pontos (separadores de milhar em pt-BR)
+  const n = parseFloat(v.replace(/\./g,'').replace(',','.'))
   return isNaN(n) ? null : (neg ? -n : n)
+}
+
+// Funde células "R$" isoladas com a célula seguinte (alguns PDFs separam o símbolo do valor)
+function normalizeRow(row: string[]): string[] {
+  const result: string[] = []
+  for (let i = 0; i < row.length; i++) {
+    if (row[i].trim() === 'R$' && i + 1 < row.length) {
+      result.push('R$ ' + row[i + 1].trim())
+      i++
+    } else {
+      result.push(row[i])
+    }
+  }
+  return result
 }
 
 function limpaInt(s: string | null | undefined): number | null {
@@ -145,7 +160,9 @@ function parseLinhas(linhas: string[][], arquivo: string): { registros: Veiculo[
   const registros: Veiculo[] = []
   const alertas: string[] = []
 
-  for (const row of linhas) {
+  let debugCount = 0
+  for (const rawRow of linhas) {
+    const row = normalizeRow(rawRow)
     const patio = (row[0] ?? '').trim()
     if (!patio || patio === 'PÁTIO' || patio === 'PATÍO') continue
     if (row.length < 6) continue
@@ -159,6 +176,12 @@ function parseLinhas(linhas: string[][], arquivo: string): { registros: Veiculo[
 
     // Usa row com deslocamento para que placa esteja sempre no índice 1
     const r = placaIdx === 1 ? row : (placaIdx > 1 ? row.slice(placaIdx - 1) : row)
+
+    // Log das 3 primeiras linhas válidas para diagnóstico
+    if (debugCount < 3) {
+      console.log(`[DEBUG ${arquivo}] row(${r.length}):`, JSON.stringify(r))
+      debugCount++
+    }
 
     const placa = (r[1] ?? '').trim()
     if (!/^[A-Z]{3}\d/.test(placa)) continue
