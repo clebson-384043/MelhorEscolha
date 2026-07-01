@@ -81,42 +81,59 @@ function separaCategoria(c3: string, c4: string): [string | null, number | null,
 async function extraiTabela(buffer: ArrayBuffer): Promise<string[][]> {
   const doc = await getDocumentProxy(new Uint8Array(buffer))
   const linhas: string[][] = []
-  const Y_TOL = 3
 
   for (let p = 1; p <= doc.numPages; p++) {
     const page = await doc.getPage(p)
     const content = await page.getTextContent()
-    const items = content.items as Array<{ str: string; transform: number[] }>
+    const items = content.items as Array<{ str: string; transform: number[]; width?: number }>
 
-    // Agrupa por Y com tolerância
-    const grupos: { y: number; items: typeof items }[] = []
-    for (const item of items) {
-      const y = item.transform[5]
-      const grp = grupos.find(g => Math.abs(g.y - y) <= Y_TOL)
-      if (grp) grp.items.push(item)
-      else grupos.push({ y, items: [item] })
+    if (!items.length) continue
+
+    // Snap Y para múltiplos de 4 — agrupa itens da mesma linha visual
+    const grupos = new Map<number, Array<{ str: string; x: number; w: number }>>()
+    for (const it of items) {
+      const s = it.str
+      if (!s.trim()) continue
+      const ySnap = Math.round(it.transform[5] / 4) * 4
+      if (!grupos.has(ySnap)) grupos.set(ySnap, [])
+      grupos.get(ySnap)!.push({
+        str: s,
+        x: it.transform[4],
+        w: it.width ?? s.length * 5,
+      })
     }
 
-    // Ordena grupos de cima para baixo, itens da esquerda para direita
-    grupos.sort((a, b) => b.y - a.y)
-    for (const grp of grupos) {
-      grp.items.sort((a, b) => a.transform[4] - b.transform[4])
-      // Combina textos adjacentes na mesma célula (heurística: gap > 15px = nova célula)
+    const ys = [...grupos.keys()].sort((a, b) => b - a)
+
+    for (const y of ys) {
+      const grp = grupos.get(y)!.sort((a, b) => a.x - b.x)
+
+      // Constrói células: itens com gap > 8px formam nova célula
       const celulas: string[] = []
-      let celAtual = ''
-      let xAnterior = -Infinity
-      for (const it of grp.items) {
-        const x = it.transform[4]
-        if (celAtual === '' || x - xAnterior < 15) {
-          celAtual += it.str
+      let cel = ''
+      let xFim = -9999
+
+      for (const it of grp) {
+        const gap = it.x - xFim
+        if (cel === '' || gap <= 8) {
+          cel += it.str
         } else {
-          celulas.push(celAtual.trim())
-          celAtual = it.str
+          const t = cel.trim()
+          if (t) celulas.push(t)
+          cel = it.str
         }
-        xAnterior = x + (it.str.length * 5) // estimativa de largura
+        xFim = it.x + it.w
       }
-      if (celAtual.trim()) celulas.push(celAtual.trim())
-      if (celulas.length >= 10) linhas.push(celulas)
+      const last = cel.trim()
+      if (last) celulas.push(last)
+
+      // Linha válida: pelo menos 6 células e contém padrão de placa ou valores monetários
+      if (celulas.length >= 6) {
+        const joined = celulas.join(' ')
+        const temPlaca = /[A-Z]{3}\d/.test(joined)
+        const temValor = /R\$/.test(joined) || /%/.test(joined)
+        if (temPlaca || temValor) linhas.push(celulas)
+      }
     }
   }
   return linhas
@@ -131,33 +148,43 @@ function parseLinhas(linhas: string[][], arquivo: string): { registros: Veiculo[
   for (const row of linhas) {
     const patio = (row[0] ?? '').trim()
     if (!patio || patio === 'PÁTIO' || patio === 'PATÍO') continue
-    if (row.length < 10) continue
+    if (row.length < 6) continue
 
-    const placa = (row[1] ?? '').trim()
+    // Busca placa em qualquer posição (colunas podem variar por PDF)
+    let placaIdx = -1
+    for (let i = 0; i < Math.min(row.length, 5); i++) {
+      if (/^[A-Z]{3}\d[A-Z0-9]{2}\d$/.test((row[i] ?? '').trim())) { placaIdx = i; break }
+    }
+    if (placaIdx < 0) continue
+
+    // Usa row com deslocamento para que placa esteja sempre no índice 1
+    const r = placaIdx === 1 ? row : (placaIdx > 1 ? row.slice(placaIdx - 1) : row)
+
+    const placa = (r[1] ?? '').trim()
     if (!/^[A-Z]{3}\d/.test(placa)) continue
 
     // Detecta layout estendido (endereço/bairro) — 18+ colunas vs 14 padrão
-    const ext = row.length >= 18
+    const ext = r.length >= 18
     const [km_i, cor_i, uf_i] = ext ? [6, 7, 12] : [6, 7, 8]
     const [orc_i, fpe_i, mg_i, portal_i, pct_i] = ext ? [13, 14, 15, 16, 17] : [9, 10, 11, 12, 13]
 
-    const modelo = (row[2] ?? '').trim()
-    let [categoria, ano_fab, ano_mod] = separaCategoria(row[3] ?? '', row[4] ?? '')
+    const modelo = (r[2] ?? '').trim()
+    let [categoria, ano_fab, ano_mod] = separaCategoria(r[3] ?? '', r[4] ?? '')
 
     // Coluna 5 pode ter o ano do modelo quando separado
     if (ano_fab && ano_fab === ano_mod) {
-      const ano5 = limpaInt(row[5])
+      const ano5 = limpaInt(r[5])
       if (ano5 && ano5 >= 2000 && ano5 <= 2035) ano_mod = ano5
     }
 
-    const km        = limpaInt(row[km_i])
-    const cor       = (row[cor_i] ?? '').trim()
-    const uf        = (row[uf_i] ?? '').trim()
-    const orcamento = limpaDinheiro(row[orc_i])
-    const fpe       = limpaDinheiro(row[fpe_i])
-    const margem    = limpaDinheiro(row[mg_i])
-    const portal    = limpaDinheiro(row[portal_i])
-    const pctStr    = (row[pct_i] ?? '').trim()
+    const km        = limpaInt(r[km_i])
+    const cor       = (r[cor_i] ?? '').trim()
+    const uf        = (r[uf_i] ?? '').trim()
+    const orcamento = limpaDinheiro(r[orc_i])
+    const fpe       = limpaDinheiro(r[fpe_i])
+    const margem    = limpaDinheiro(r[mg_i])
+    const portal    = limpaDinheiro(r[portal_i])
+    const pctStr    = (r[pct_i] ?? '').trim()
     const margem_pct = pctStr.includes('%') ? limpaInt(pctStr.replace('%','')) : null
 
     // Margem líquida
