@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/auth'
 import './Upload.css'
@@ -39,9 +39,10 @@ export default function Upload({ onBack }: Props) {
   const [erro, setErro]           = useState<string | null>(null)
   const inputRef                  = useRef<HTMLInputElement>(null)
 
-  const [dataDelete, setDataDelete]   = useState(hojeISO())
   const [deletando, setDeletando]     = useState(false)
   const [deleteMsg, setDeleteMsg]     = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
+  const [datasDisponiveis, setDatasDisponiveis] = useState<{ data_ref: string; veiculos: number; arquivos: number }[]>([])
+  const [carregandoDatas, setCarregandoDatas]   = useState(true)
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const pdfs = [...files].filter(f => f.type === 'application/pdf' || f.name.endsWith('.pdf'))
@@ -106,21 +107,42 @@ export default function Upload({ onBack }: Props) {
     setProcessando(false)
   }
 
-  async function excluirPorData() {
-    const dataFmt = fmtData(dataDelete)
-    if (!window.confirm(`Excluir TODOS os registros de ${dataFmt} (veículos, eventos e processamentos)?\n\nEsta ação não pode ser desfeita.`)) return
+  const carregarDatas = useCallback(async () => {
+    setCarregandoDatas(true)
+    const { data } = await supabase
+      .from('processamentos')
+      .select('data_ref, veiculos, status')
+      .eq('tenant_id', tenantId)
+      .order('data_ref', { ascending: false })
+    if (data) {
+      const map = new Map<string, { veiculos: number; arquivos: number }>()
+      for (const row of data) {
+        const prev = map.get(row.data_ref) ?? { veiculos: 0, arquivos: 0 }
+        map.set(row.data_ref, { veiculos: prev.veiculos + (row.veiculos ?? 0), arquivos: prev.arquivos + 1 })
+      }
+      setDatasDisponiveis([...map.entries()].map(([data_ref, info]) => ({ data_ref, ...info })))
+    }
+    setCarregandoDatas(false)
+  }, [tenantId])
+
+  useEffect(() => { carregarDatas() }, [carregarDatas])
+
+  async function excluirData(dataRef: string) {
+    const dataFmt = fmtData(dataRef)
+    if (!window.confirm(`Excluir TODOS os registros de ${dataFmt}?\n\nEsta ação não pode ser desfeita.`)) return
     setDeletando(true)
     setDeleteMsg(null)
     try {
-      const { error: e1 } = await supabase.from('veiculos_snapshot').delete().eq('data_ref', dataDelete)
+      const { error: e1 } = await supabase.from('veiculos_snapshot').delete().eq('data_ref', dataRef).eq('tenant_id', tenantId)
       if (e1) throw e1
-      const { error: e2 } = await supabase.from('eventos_diarios').delete().eq('data_ref', dataDelete)
+      const { error: e2 } = await supabase.from('eventos_diarios').delete().eq('data_ref', dataRef).eq('tenant_id', tenantId)
       if (e2) throw e2
-      const { error: e3 } = await supabase.from('processamentos').delete().eq('data_ref', dataDelete)
+      const { error: e3 } = await supabase.from('processamentos').delete().eq('data_ref', dataRef).eq('tenant_id', tenantId)
       if (e3) throw e3
-      setDeleteMsg({ tipo: 'ok', texto: `Registros de ${dataFmt} excluídos com sucesso.` })
+      setDeleteMsg({ tipo: 'ok', texto: `Registros de ${dataFmt} excluídos.` })
+      setDatasDisponiveis(prev => prev.filter(d => d.data_ref !== dataRef))
     } catch (e) {
-      setDeleteMsg({ tipo: 'erro', texto: `Erro ao excluir: ${(e as { message?: string }).message ?? String(e)}` })
+      setDeleteMsg({ tipo: 'erro', texto: `Erro: ${(e as { message?: string }).message ?? String(e)}` })
     } finally {
       setDeletando(false)
     }
@@ -241,27 +263,48 @@ export default function Upload({ onBack }: Props) {
               <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
               <path d="M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
             </svg>
-            <span>Excluir registros por data</span>
-          </div>
-          <div className="delete-zone-body">
-            <input
-              type="date"
-              value={dataDelete}
-              onChange={e => { setDataDelete(e.target.value); setDeleteMsg(null) }}
-              className="upload-date-input"
-            />
-            <span className="upload-date-hint">{fmtData(dataDelete)}</span>
-            <button
-              className="delete-btn"
-              onClick={excluirPorData}
-              disabled={deletando}
-            >
-              {deletando ? <><span className="upload-spinner small"/> Excluindo…</> : 'Excluir data'}
+            <span>Registros no banco</span>
+            <button className="delete-refresh" onClick={carregarDatas} title="Atualizar lista">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
+                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+              </svg>
             </button>
           </div>
-          {deleteMsg && (
-            <div className={`delete-msg ${deleteMsg.tipo}`}>{deleteMsg.texto}</div>
+
+          {carregandoDatas ? (
+            <div className="delete-loading"><span className="upload-spinner small"/> Carregando…</div>
+          ) : datasDisponiveis.length === 0 ? (
+            <div className="delete-empty">Nenhum registro encontrado.</div>
+          ) : (
+            <div className="delete-list">
+              {datasDisponiveis.map(d => (
+                <div key={d.data_ref} className="delete-list-item">
+                  <div className="delete-list-info">
+                    <span className="delete-list-date">{fmtData(d.data_ref)}</span>
+                    <span className="delete-list-meta">
+                      {d.veiculos.toLocaleString('pt-BR')} veículos • {d.arquivos} arquivo{d.arquivos !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <button
+                    className="delete-btn"
+                    onClick={() => excluirData(d.data_ref)}
+                    disabled={deletando}
+                  >
+                    {deletando ? <span className="upload-spinner small"/> : (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{width:13,height:13}}>
+                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                        <path d="M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+                      </svg>
+                    )}
+                    Excluir
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
+
+          {deleteMsg && <div className={`delete-msg ${deleteMsg.tipo}`}>{deleteMsg.texto}</div>}
         </div>
 
         {/* Botão processar */}
