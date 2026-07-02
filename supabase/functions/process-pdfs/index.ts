@@ -104,7 +104,7 @@ async function extraiTabela(buffer: ArrayBuffer): Promise<string[][]> {
 
     if (!items.length) continue
 
-    // Snap Y para múltiplos de 4 — agrupa itens da mesma linha visual
+    // Snap Y em múltiplos de 4 para agrupamento inicial
     const grupos = new Map<number, Array<{ str: string; x: number; w: number }>>()
     for (const it of items) {
       const s = it.str
@@ -114,23 +114,36 @@ async function extraiTabela(buffer: ArrayBuffer): Promise<string[][]> {
       grupos.get(ySnap)!.push({
         str: s,
         x: it.transform[4],
-        w: it.width ?? s.length * 5,
+        // Cap de largura: evita superestimativa que cola colunas distintas
+        w: Math.min(it.width ?? 9999, s.length * 7),
       })
     }
 
-    const ys = [...grupos.keys()].sort((a, b) => b - a)
+    // Mescla grupos Y adjacentes dentro de 5px (baseline variável dentro de uma linha)
+    const ysOrdenados = [...grupos.keys()].sort((a, b) => b - a)
+    const mesclados = new Map<number, Array<{ str: string; x: number; w: number }>>()
+    let repY = ysOrdenados[0]
+    for (const y of ysOrdenados) {
+      if (repY - y > 5) repY = y
+      if (!mesclados.has(repY)) mesclados.set(repY, [])
+      mesclados.get(repY)!.push(...grupos.get(y)!)
+    }
 
-    for (const y of ys) {
-      const grp = grupos.get(y)!.sort((a, b) => a.x - b.x)
+    // Gera células por linha mesclada
+    const linhasOrdenadas = [...mesclados.entries()].sort((a, b) => b[0] - a[0])
+    console.log(`[extraiTabela p${p}] ${linhasOrdenadas.length} linhas brutas`)
 
-      // Constrói células: itens com gap > 8px formam nova célula
+    for (const [, grp] of linhasOrdenadas) {
+      const sorted = grp.sort((a, b) => a.x - b.x)
+
+      // Constrói células: gap > 10px entre itens = nova célula
       const celulas: string[] = []
       let cel = ''
       let xFim = -9999
 
-      for (const it of grp) {
+      for (const it of sorted) {
         const gap = it.x - xFim
-        if (cel === '' || gap <= 8) {
+        if (cel === '' || gap <= 10) {
           cel += it.str
         } else {
           const t = cel.trim()
@@ -142,7 +155,6 @@ async function extraiTabela(buffer: ArrayBuffer): Promise<string[][]> {
       const last = cel.trim()
       if (last) celulas.push(last)
 
-      // Linha válida: pelo menos 6 células e contém padrão de placa ou valores monetários
       if (celulas.length >= 6) {
         const joined = celulas.join(' ')
         const temPlaca = /[A-Z]{3}\d/.test(joined)
@@ -151,6 +163,7 @@ async function extraiTabela(buffer: ArrayBuffer): Promise<string[][]> {
       }
     }
   }
+  console.log(`[extraiTabela] total linhas válidas: ${linhas.length}`)
   return linhas
 }
 
