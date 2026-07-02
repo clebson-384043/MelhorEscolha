@@ -114,8 +114,7 @@ async function extraiTabela(buffer: ArrayBuffer): Promise<string[][]> {
       grupos.get(ySnap)!.push({
         str: s,
         x: it.transform[4],
-        // Cap de largura: evita superestimativa que cola colunas distintas
-        w: Math.min(it.width ?? 9999, s.length * 7),
+        w: it.width ?? s.length * 5,
       })
     }
 
@@ -136,14 +135,14 @@ async function extraiTabela(buffer: ArrayBuffer): Promise<string[][]> {
     for (const [, grp] of linhasOrdenadas) {
       const sorted = grp.sort((a, b) => a.x - b.x)
 
-      // Constrói células: gap > 10px entre itens = nova célula
+      // Constrói células: gap > 8px entre itens = nova célula
       const celulas: string[] = []
       let cel = ''
       let xFim = -9999
 
       for (const it of sorted) {
         const gap = it.x - xFim
-        if (cel === '' || gap <= 10) {
+        if (cel === '' || gap <= 8) {
           cel += it.str
         } else {
           const t = cel.trim()
