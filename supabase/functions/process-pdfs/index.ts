@@ -188,19 +188,26 @@ function extraiFinanceiros(blob: string): number[] {
 function parseLinhas(linhas: string[][], arquivo: string): { registros: Veiculo[], alertas: string[] } {
   const registros: Veiculo[] = []
   const alertas: string[] = []
+  let cFiltro = 0, cPlaca = 0, cLen = 0
+
+  // Log das primeiras 5 linhas brutas para diagnóstico de estrutura
+  for (let di = 0; di < Math.min(5, linhas.length); di++) {
+    console.log(`[parse-raw ${arquivo}] row${di}(${linhas[di].length}):`, JSON.stringify(linhas[di]))
+  }
 
   for (const rawRow of linhas) {
     const row = normalizeRow(rawRow)
     const col0 = (row[0] ?? '').trim()
-    if (!col0 || col0 === 'PÁTIO' || col0 === 'PATÍO') continue
-    if (row.length < 6) continue
+    if (!col0 || col0 === 'PÁTIO' || col0 === 'PATÍO') { cFiltro++; continue }
+    if (row.length < 6) { cLen++; continue }
 
     // Localiza a placa nas primeiras 5 posições
     let placaIdx = -1
     for (let i = 0; i < Math.min(row.length, 5); i++) {
       if (/^[A-Z]{3}\d[A-Z0-9]{2}\d$/.test((row[i] ?? '').trim())) { placaIdx = i; break }
     }
-    if (placaIdx < 0) continue
+    if (placaIdx < 0) { cPlaca++; continue }
+    console.log(`[parse-ok ${arquivo}] placaIdx=${placaIdx} row(${row.length}):`, JSON.stringify(row.slice(0,6)))
 
     let patioCod: string, patioNome: string, r: string[]
 
@@ -288,6 +295,7 @@ function parseLinhas(linhas: string[][], arquivo: string): { registros: Veiculo[
     })
   }
 
+  console.log(`[parse-resumo ${arquivo}] total=${linhas.length} filtro=${cFiltro} semPlaca=${cPlaca} curto=${cLen} ok=${registros.length}`)
   if (registros.length === 0) alertas.push(`${arquivo}: nenhum registro extraído`)
   return { registros, alertas }
 }
