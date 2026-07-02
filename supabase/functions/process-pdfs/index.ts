@@ -154,68 +154,121 @@ async function extraiTabela(buffer: ArrayBuffer): Promise<string[][]> {
   return linhas
 }
 
+// ── Helpers do parser ─────────────────────────────────────────────────────
+
+// Extrai km e cor de célula fundida: "13027PRATA SHARK" → [13027, "PRATA SHARK"]
+function extraiKmCor(s: string): [number | null, string] {
+  const mKm = s.match(/^(\d+)/)
+  const km = mKm ? parseInt(mKm[1]) : null
+  const rest = mKm ? s.slice(mKm[1].length) : s
+  const mAddr = rest.match(/^(.*?)\s+(?:AV(?:ENIDA)?|RUA|ROD(?:OVIA)?|AL(?:AMEDA)?|ESTR(?:ADA)?|TRAVESSA|TV)\b/i)
+  const cor = (mAddr ? mAddr[1] : rest.slice(0, 30)).trim()
+  return [km, cor]
+}
+
+// Extrai múltiplos valores de célula fundida: "R$X,XXR$Y,YYR$" → [X, Y]
+function extraiFinanceiros(blob: string): number[] {
+  return blob.split('R$').map(s => limpaDinheiro(s.trim())).filter(v => v !== null) as number[]
+}
+
 // ── Parser principal ───────────────────────────────────────────────────────
 
 function parseLinhas(linhas: string[][], arquivo: string): { registros: Veiculo[], alertas: string[] } {
   const registros: Veiculo[] = []
   const alertas: string[] = []
 
-  let debugCount = 0
   for (const rawRow of linhas) {
     const row = normalizeRow(rawRow)
-    const patio = (row[0] ?? '').trim()
-    if (!patio || patio === 'PÁTIO' || patio === 'PATÍO') continue
+    const col0 = (row[0] ?? '').trim()
+    if (!col0 || col0 === 'PÁTIO' || col0 === 'PATÍO') continue
     if (row.length < 6) continue
 
-    // Busca placa em qualquer posição (colunas podem variar por PDF)
+    // Localiza a placa nas primeiras 5 posições
     let placaIdx = -1
     for (let i = 0; i < Math.min(row.length, 5); i++) {
       if (/^[A-Z]{3}\d[A-Z0-9]{2}\d$/.test((row[i] ?? '').trim())) { placaIdx = i; break }
     }
     if (placaIdx < 0) continue
 
-    // Usa row com deslocamento para que placa esteja sempre no índice 1
-    const r = placaIdx === 1 ? row : (placaIdx > 1 ? row.slice(placaIdx - 1) : row)
+    let patioCod: string, patioNome: string, r: string[]
 
-    // Log das 3 primeiras linhas válidas para diagnóstico
-    if (debugCount < 3) {
-      console.log(`[DEBUG ${arquivo}] row(${r.length}):`, JSON.stringify(r))
-      debugCount++
+    if (placaIdx === 0) {
+      // ── Formato B: sem coluna de pátio (relatórios multi-pátio/atacado)
+      r = row
+      patioCod = 'MULTI'
+      patioNome = arquivo.replace(/\.[^.]+$/, '').replace(/_/g, ' ').slice(0, 60)
+    } else {
+      // ── Formato A: pátio na posição placaIdx-1
+      r = placaIdx === 1 ? row : row.slice(placaIdx - 1)
+      patioCod = (r[0] ?? '').trim()
+      patioNome = PATIO_NOME[patioCod] ?? patioCod
     }
 
-    const placa = (r[1] ?? '').trim()
+    const placa = placaIdx === 0 ? col0 : (r[1] ?? '').trim()
     if (!/^[A-Z]{3}\d/.test(placa)) continue
 
-    // Detecta layout estendido (endereço/bairro) — 18+ colunas vs 14 padrão
-    const ext = r.length >= 18
-    const [km_i, cor_i, uf_i] = ext ? [6, 7, 12] : [6, 7, 8]
-    const [orc_i, fpe_i, mg_i, portal_i, pct_i] = ext ? [13, 14, 15, 16, 17] : [9, 10, 11, 12, 13]
+    let modelo: string
+    let categoria: string | null, ano_fab: number | null, ano_mod: number | null
+    let km: number | null, cor: string, uf: string
+    let orcamento: number | null, fpe: number | null, margem: number | null
+    let portal: number | null, margem_pct: number | null
 
-    const modelo = (r[2] ?? '').trim()
-    let [categoria, ano_fab, ano_mod] = separaCategoria(r[3] ?? '', r[4] ?? '')
+    if (placaIdx === 0) {
+      // ── Formato B: parse esquerda + direita ─────────────────────────────
+      // Esquerda: placa[0], modelo[1], categoria+ano_fab[2], ano_mod[3], km+cor[4]
+      modelo = (r[1] ?? '').trim()
+      ;[categoria, ano_fab, ano_mod] = separaCategoria(r[2] ?? '', r[3] ?? '')
+      ;[km, cor] = extraiKmCor(r[4] ?? '')
 
-    // Coluna 5 pode ter o ano do modelo quando separado
-    if (ano_fab && ano_fab === ano_mod) {
-      const ano5 = limpaInt(r[5])
-      if (ano5 && ano5 >= 2000 && ano5 <= 2035) ano_mod = ano5
+      // Direita: last=%, last-1=portal, last-2=blob(orc+fpe+margem)
+      const last = r.length - 1
+      const pctStr = (r[last] ?? '').trim()
+      margem_pct = pctStr.includes('%') ? (parseInt(pctStr) || null) : null
+      portal = limpaDinheiro(r[last - 1])
+      const vals = extraiFinanceiros(r[last - 2] ?? '')
+      // Blob tem de 1 a 3 valores; sem orcamento quando só 2
+      orcamento = vals.length >= 3 ? vals[0] : null
+      fpe       = vals.length >= 3 ? vals[1] : vals.length >= 2 ? vals[0] : null
+      margem    = vals.length >= 3 ? vals[2] : vals.length >= 2 ? vals[1] : vals[0] ?? null
+
+      // UF: célula de 2 letras maiúsculas entre last-3 e last-6
+      uf = ''
+      for (let i = last - 3; i >= Math.max(5, last - 6); i--) {
+        const c = (r[i] ?? '').trim()
+        if (/^[A-Z]{2}$/.test(c)) { uf = c; break }
+      }
+    } else {
+      // ── Formato A: índices fixos ─────────────────────────────────────────
+      modelo = (r[2] ?? '').trim()
+      ;[categoria, ano_fab, ano_mod] = separaCategoria(r[3] ?? '', r[4] ?? '')
+
+      if (ano_fab && ano_fab === ano_mod) {
+        const ano5 = limpaInt(r[5])
+        if (ano5 && ano5 >= 2000 && ano5 <= 2035) ano_mod = ano5
+      }
+
+      const ext = r.length >= 18
+      const [km_i, cor_i, uf_i] = ext ? [6, 7, 12] : [6, 7, 8]
+      const [orc_i, fpe_i, mg_i, portal_i, pct_i] = ext ? [13, 14, 15, 16, 17] : [9, 10, 11, 12, 13]
+
+      km        = limpaInt(r[km_i])
+      cor       = (r[cor_i] ?? '').trim()
+      uf        = (r[uf_i] ?? '').trim()
+      orcamento = limpaDinheiro(r[orc_i])
+      fpe       = limpaDinheiro(r[fpe_i])
+      margem    = limpaDinheiro(r[mg_i])
+      portal    = limpaDinheiro(r[portal_i])
+      const pctStr = (r[pct_i] ?? '').trim()
+      margem_pct = pctStr.includes('%') ? limpaInt(pctStr.replace('%', '')) : null
     }
 
-    const km        = limpaInt(r[km_i])
-    const cor       = (r[cor_i] ?? '').trim()
-    const uf        = (r[uf_i] ?? '').trim()
-    const orcamento = limpaDinheiro(r[orc_i])
-    const fpe       = limpaDinheiro(r[fpe_i])
-    const margem    = limpaDinheiro(r[mg_i])
-    const portal    = limpaDinheiro(r[portal_i])
-    const pctStr    = (r[pct_i] ?? '').trim()
-    const margem_pct = pctStr.includes('%') ? limpaInt(pctStr.replace('%','')) : null
-
-    // Margem líquida
     const margem_liq = margem != null ? margem - (orcamento ?? 0) : null
-    const margem_liq_pct = margem_liq != null && portal ? parseFloat((margem_liq / portal * 100).toFixed(1)) : null
+    const margem_liq_pct = margem_liq != null && portal
+      ? parseFloat((margem_liq / portal * 100).toFixed(1))
+      : null
 
     registros.push({
-      patio, patio_nome: PATIO_NOME[patio] ?? patio,
+      patio: patioCod, patio_nome: patioNome,
       placa, modelo, categoria, ano_fab, ano_mod, km, cor, uf,
       orcamento, fpe, margem, portal, margem_pct,
       margem_liq, margem_liq_pct,
