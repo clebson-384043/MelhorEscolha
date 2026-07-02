@@ -201,13 +201,18 @@ function parseLinhas(linhas: string[][], arquivo: string): { registros: Veiculo[
     if (!col0 || col0 === 'PÁTIO' || col0 === 'PATÍO') { cFiltro++; continue }
     if (row.length < 6) { cLen++; continue }
 
-    // Localiza a placa nas primeiras 5 posições
+    // Busca placa em QUALQUER posição (regex flexível: 3 letras + 4 alfanum)
     let placaIdx = -1
-    for (let i = 0; i < Math.min(row.length, 5); i++) {
-      if (/^[A-Z]{3}\d[A-Z0-9]{2}\d$/.test((row[i] ?? '').trim())) { placaIdx = i; break }
+    for (let i = 0; i < row.length; i++) {
+      const c = (row[i] ?? '').trim()
+      if (/^[A-Z]{3}[\dA-Z]{4}$/.test(c) && /\d/.test(c)) { placaIdx = i; break }
     }
-    if (placaIdx < 0) { cPlaca++; continue }
-    console.log(`[parse-ok ${arquivo}] placaIdx=${placaIdx} row(${row.length}):`, JSON.stringify(row.slice(0,6)))
+    if (placaIdx < 0) {
+      cPlaca++
+      if (cPlaca <= 3) console.log(`[parse-semPlaca ${arquivo}] row(${row.length}):`, JSON.stringify(row.slice(0,5)))
+      continue
+    }
+    console.log(`[parse-ok ${arquivo}] placaIdx=${placaIdx} row(${row.length}):`, JSON.stringify(row.slice(0, placaIdx + 3)))
 
     let patioCod: string, patioNome: string, r: string[]
 
