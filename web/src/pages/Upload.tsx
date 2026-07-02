@@ -19,6 +19,15 @@ const TENANT_OPTS = [
 function hojeISO() { return new Date().toISOString().slice(0, 10) }
 function fmtData(d: string) { return d.split('-').reverse().join('/') }
 
+// Remove acentos, espaços e caracteres inválidos para Supabase Storage paths
+function sanitizeKey(filename: string): string {
+  return filename
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[–—]/g, '-')
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9._-]/g, '')
+}
+
 interface Props { session: Session; onBack: () => void }
 
 export default function Upload({ onBack }: Props) {
@@ -53,8 +62,9 @@ export default function Upload({ onBack }: Props) {
     let difRodado = false
     for (const file of arquivos) {
       try {
-        // 1. Upload para Supabase Storage
-        const path = `${tenantId}/${dataRef}/${file.name}`
+        // 1. Upload para Supabase Storage (nome sanitizado para remover acentos e espaços)
+        const safeName = sanitizeKey(file.name)
+        const path = `${tenantId}/${dataRef}/${safeName}`
         const { error: upErr } = await supabase.storage.from('pdfs').upload(path, file, { upsert: true })
         if (upErr) throw new Error(`Falha no upload: ${upErr.message}`)
 
