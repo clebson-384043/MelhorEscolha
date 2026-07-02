@@ -201,18 +201,29 @@ function parseLinhas(linhas: string[][], arquivo: string): { registros: Veiculo[
     if (!col0 || col0 === 'PÁTIO' || col0 === 'PATÍO') { cFiltro++; continue }
     if (row.length < 6) { cLen++; continue }
 
-    // Busca placa em QUALQUER posição (regex flexível: 3 letras + 4 alfanum)
+    // Busca placa em QUALQUER posição — aceita célula exata ou fundida com modelo
+    // Ex. fundida: "ABC1234FIAT UNO" quando gap ≤8px funde as duas colunas
     let placaIdx = -1
+    let placaExtraida = ''
     for (let i = 0; i < row.length; i++) {
       const c = (row[i] ?? '').trim()
-      if (/^[A-Z]{3}[\dA-Z]{4}$/.test(c) && /\d/.test(c)) { placaIdx = i; break }
+      // Caso 1: célula é exatamente a placa (7 chars)
+      if (/^[A-Z]{3}[\dA-Z]{4}$/.test(c) && /\d/.test(c)) {
+        placaIdx = i; placaExtraida = c; break
+      }
+      // Caso 2: placa fundida com modelo ("ABC1234FIAT UNO" ou "ABC1D23 FIAT")
+      const mFused = c.match(/^([A-Z]{3}[\dA-Z]{4})\s*([A-Z].+)$/)
+      if (mFused && /\d/.test(mFused[1])) {
+        row.splice(i, 1, mFused[1], mFused[2].trim())  // separa in-place
+        placaIdx = i; placaExtraida = mFused[1]; break
+      }
     }
     if (placaIdx < 0) {
       cPlaca++
-      if (cPlaca <= 3) console.log(`[parse-semPlaca ${arquivo}] row(${row.length}):`, JSON.stringify(row.slice(0,5)))
+      if (cPlaca <= 5) console.log(`[parse-semPlaca ${arquivo}] row(${row.length}):`, JSON.stringify(row))
       continue
     }
-    console.log(`[parse-ok ${arquivo}] placaIdx=${placaIdx} row(${row.length}):`, JSON.stringify(row.slice(0, placaIdx + 3)))
+    console.log(`[parse-ok ${arquivo}] placaIdx=${placaIdx} placa=${placaExtraida} row(${row.length}):`, JSON.stringify(row.slice(0, placaIdx + 3)))
 
     let patioCod: string, patioNome: string, r: string[]
 
@@ -228,7 +239,7 @@ function parseLinhas(linhas: string[][], arquivo: string): { registros: Veiculo[
       patioNome = PATIO_NOME[patioCod] ?? patioCod
     }
 
-    const placa = placaIdx === 0 ? col0 : (r[1] ?? '').trim()
+    const placa = placaIdx === 0 ? placaExtraida : (r[1] ?? '').trim()
     if (!/^[A-Z]{3}\d/.test(placa)) continue
 
     let modelo: string
@@ -430,7 +441,7 @@ Deno.serve(async (req) => {
 
         for (let i = 0; i < rows.length; i += BATCH) {
           const { error: upsertErr } = await admin.from('veiculos_snapshot')
-            .upsert(rows.slice(i, i + BATCH), { onConflict: 'tenant_id,data_ref,placa' })
+            .upsert(rows.slice(i, i + BATCH), { onConflict: 'tenant_id,data_ref,arquivo,placa' })
           if (upsertErr) throw new Error(upsertErr.message)
         }
 

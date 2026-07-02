@@ -39,6 +39,10 @@ export default function Upload({ onBack }: Props) {
   const [erro, setErro]           = useState<string | null>(null)
   const inputRef                  = useRef<HTMLInputElement>(null)
 
+  const [dataDelete, setDataDelete]   = useState(hojeISO())
+  const [deletando, setDeletando]     = useState(false)
+  const [deleteMsg, setDeleteMsg]     = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
+
   const addFiles = useCallback((files: FileList | File[]) => {
     const pdfs = [...files].filter(f => f.type === 'application/pdf' || f.name.endsWith('.pdf'))
     setArquivos(prev => {
@@ -100,6 +104,26 @@ export default function Upload({ onBack }: Props) {
     }
 
     setProcessando(false)
+  }
+
+  async function excluirPorData() {
+    const dataFmt = fmtData(dataDelete)
+    if (!window.confirm(`Excluir TODOS os registros de ${dataFmt} (veículos, eventos e processamentos)?\n\nEsta ação não pode ser desfeita.`)) return
+    setDeletando(true)
+    setDeleteMsg(null)
+    try {
+      const { error: e1 } = await supabase.from('veiculos_snapshot').delete().eq('data_ref', dataDelete)
+      if (e1) throw e1
+      const { error: e2 } = await supabase.from('eventos_diarios').delete().eq('data_ref', dataDelete)
+      if (e2) throw e2
+      const { error: e3 } = await supabase.from('processamentos').delete().eq('data_ref', dataDelete)
+      if (e3) throw e3
+      setDeleteMsg({ tipo: 'ok', texto: `Registros de ${dataFmt} excluídos com sucesso.` })
+    } catch (e) {
+      setDeleteMsg({ tipo: 'erro', texto: `Erro ao excluir: ${(e as { message?: string }).message ?? String(e)}` })
+    } finally {
+      setDeletando(false)
+    }
   }
 
   const totalOk  = resultados.filter(r => r.status === 'ok' || r.status === 'aviso').length
@@ -209,6 +233,36 @@ export default function Upload({ onBack }: Props) {
         )}
 
         {erro && <div className="upload-error">{erro}</div>}
+
+        {/* Zona de exclusão por data */}
+        <div className="delete-zone">
+          <div className="delete-zone-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+              <path d="M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+            </svg>
+            <span>Excluir registros por data</span>
+          </div>
+          <div className="delete-zone-body">
+            <input
+              type="date"
+              value={dataDelete}
+              onChange={e => { setDataDelete(e.target.value); setDeleteMsg(null) }}
+              className="upload-date-input"
+            />
+            <span className="upload-date-hint">{fmtData(dataDelete)}</span>
+            <button
+              className="delete-btn"
+              onClick={excluirPorData}
+              disabled={deletando}
+            >
+              {deletando ? <><span className="upload-spinner small"/> Excluindo…</> : 'Excluir data'}
+            </button>
+          </div>
+          {deleteMsg && (
+            <div className={`delete-msg ${deleteMsg.tipo}`}>{deleteMsg.texto}</div>
+          )}
+        </div>
 
         {/* Botão processar */}
         <button
