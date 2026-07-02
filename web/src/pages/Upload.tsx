@@ -109,18 +109,13 @@ export default function Upload({ onBack }: Props) {
 
   const carregarDatas = useCallback(async () => {
     setCarregandoDatas(true)
-    const { data } = await supabase
-      .from('processamentos')
-      .select('data_ref, veiculos, status')
-      .eq('tenant_id', tenantId)
-      .order('data_ref', { ascending: false })
+    const { data } = await supabase.rpc('get_datas_disponiveis', { p_tenant_id: tenantId })
     if (data) {
-      const map = new Map<string, { veiculos: number; arquivos: number }>()
-      for (const row of data) {
-        const prev = map.get(row.data_ref) ?? { veiculos: 0, arquivos: 0 }
-        map.set(row.data_ref, { veiculos: prev.veiculos + (row.veiculos ?? 0), arquivos: prev.arquivos + 1 })
-      }
-      setDatasDisponiveis([...map.entries()].map(([data_ref, info]) => ({ data_ref, ...info })))
+      setDatasDisponiveis(data.map((d: { data_ref: string; veiculos: number; arquivos: number }) => ({
+        data_ref: d.data_ref,
+        veiculos: Number(d.veiculos),
+        arquivos: Number(d.arquivos),
+      })))
     }
     setCarregandoDatas(false)
   }, [tenantId])
